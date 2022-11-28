@@ -2,50 +2,56 @@ param (
     [Parameter (Mandatory = $true)]
     [int] $ListItemID,
 	[Parameter (Mandatory = $true)]
-    [string] $EnvironmentName
+    [string] $EnvironmentName,
+	[Parameter (Mandatory = $false)]
+    [string] $EnvironmentRestoredBy
 )
 $TenantId = Get-AutomationVariable -Name TenantId
 $SiteUrl = Get-AutomationVariable -Name SiteUrl
 $ListName = Get-AutomationVariable -Name ListName
 
+$Cred = Get-AutomationPSCredential -Name "AppRegistration"
 
-$SpoCred = Get-AutomationPSCredential -Name "SpoAppRegistration"
-$PpCred = Get-AutomationPSCredential -Name "PpAppRegistration"
-
-Connect-PnPOnline -Url $SiteUrl -ClientId $SpoCred.UserName -ClientSecret $SpoCred.GetNetworkCredential().Password
-Add-PowerAppsAccount -TenantID $TenantId -ApplicationId $PpCred.UserName -ClientSecret $PpCred.GetNetworkCredential().Password
-
-$SpoValues = @{
-	"EnvRestored" = $true
-}
+Connect-PnPOnline -Url $SiteUrl -ClientId $Cred.UserName -ClientSecret $Cred.GetNetworkCredential().Password
+Add-PowerAppsAccount -TenantID $TenantId -ApplicationId $Cred.UserName -ClientSecret $Cred.GetNetworkCredential().Password
 
 try {
 	Write-Output "Attemping environment recovery: $EnvironmentName"
 	Write-Output "<br>"
 	Write-Output "<br>"
-	Recover-AdminPowerAppEnvironment -EnvironmentName $EnvironmentName -WaitUntilFinished $true
-	Set-PnPListItem -List "SoftDeletedEnvironments" -Identity $ListItemID -Values $SpoValues
-	Write-Output "Environment recovery successful"
+	Recover-AdminPowerAppEnvironment -EnvironmentName "$EnvironmentName" -WaitUntilFinished $true
+	Write-Output "<br>"
+	Write-Output "<br>"
+	$SpoValues = @{
+		"EnvRestored" = $true
+		"EnvRestoreDate" = (Get-Date).ToUniversalTime()
+		"RestoredBy" = $EnvironmentRestoredBy
+	}
+	Write-Output "<strong>Environment recovery successful </strong>"
+	$EnvironmentRecoverySuccessful = $true
 }
 catch {
-	Write-Output "Failed to recover environment $EnvironmentName"
-	Write-Output "<br>"
-	Write-Output "<br>"
-	Write-Output "PowerShell Error Details: "
-	Write-Output "<br>"
-	Write-Output "<br>"
-    $Err = $_
-	$_ | get-member | foreach-object {
-		if ($_.MemberType -in @("Property", "ScriptProperty")) {
-			$ErrorPropName = $_.Name
-			Write-Output "Error Property: $ErrorPropName"
-			Write-Output "<br>"
-            $ErrorProp = $Err.$ErrorPropName
-			Write-Output $ErrorProp
-			Write-Output "<br>"
-            Write-Output "<br>"
-		}
-	}
+	$Err = $_
+	Write-Output '<span style="color: rgb(255,0,0)">Failed to recover environment: ' $EnvironmentName '</span>'
+	Write-Output "<br><br>"
+	Write-Output "Error Details: "
+	Write-Output "<br><br>"
+    Write-Output "<strong>Command: </strong>" $Err.InvocationInfo.MyCommand.Name
+    Write-Output "<br>"
+    Write-Output "<strong>Line: </strong>" $Err.InvocationInfo.ScriptLineNumber "<strong>Character: </strong>" $Err.InvocationInfo.OffsetInLine
+    Write-Output "<br><br>"
+    Write-Output "<strong>Exception:</strong>"
+    Write-Output "<br>"
+    Write-Output $Err.Exception
+    Write-Output "<br><br>"
+    Write-Output "<strong>ErrorDetails:</strong>"
+    Write-Output "<br>"
+    Write-Output $Err.ErrorDetails.Message 
+    Write-Output "<br><br>"
+}
+
+if ($EnvironmentRecoverySuccessful) {
+	Set-PnPListItem -List "SoftDeletedEnvironments" -Identity $ListItemID -Values $SpoValues
 }
 
 Disconnect-PnPOnline
