@@ -1,0 +1,337 @@
+{
+    "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+    "contentVersion": "1.0.0.0",
+    "parameters": {
+        "appId": {
+            "type": "String"
+        },
+        "azureAutomationAccountName": {
+            "type": "String"
+        },
+        "azureResourceGroupName": {
+            "type": "String"
+        },
+        "azureSubscriptionId": {
+            "type": "String"
+        },
+        "baseTime": {
+            "type": "string",
+            "defaultValue": "[utcNow('u')]"
+        },
+        "clientSecret": {
+            "type": "SecureString"
+        },
+        "location": {
+            "type": "string"
+        },
+        "logicAppName": {
+            "type": "String"
+        },
+        "logicAppWebhookUrl": {
+            "type": "String"
+        },
+        "scheduleGuid": {
+            "type": "string",
+            "defaultValue": "[newGuid()]"
+        },
+        "sendNotificationsTo": {
+            "type": "String"
+        },
+        "sendRepeatedNotifications": {
+            "type": "bool"
+        },
+        "spoListName": {
+            "type": "String"
+        },
+        "spoSiteUrl": {
+            "type": "String"
+        },
+        "tenantId": {
+            "type": "String"
+        }
+    },
+    "variables": {
+        "automationJobOperator": "[guid(parameters('azureSubscriptionId'), 'Automation Job Operator')]",
+        "automationRunbookOperator": "[guid(parameters('azureSubscriptionId'), 'Automation Runbook Operator')]",
+        "logicAppWebhook": "[resourceId(parameters('azureSubscriptionId'), parameters('azureResourceGroupName'), 'Microsoft.Logic/workflows/', parameters('logicAppName'))]",
+        "tomorrow": "[dateTimeAdd(parameters('baseTime'), 'P1D','yyyy-MM-dd')]"
+    },
+    "resources": [
+        {
+            "type": "Microsoft.Automation/automationAccounts/jobSchedules",
+            "apiVersion": "2019-06-01",
+            "name": "[concat(parameters('azureAutomationAccountName'), '/', parameters('scheduleGuid'))]",
+            "dependsOn": [
+                "[resourceId('Microsoft.Automation/automationAccounts', parameters('azureAutomationAccountName'))]",
+                "[resourceId('Microsoft.Automation/automationAccounts/runbooks', parameters('azureAutomationAccountName'), 'CheckForDeletedPowerAppsEnvironments')]"
+            ],
+            "properties": {
+                "runbook": {
+                    "name": "CheckForDeletedPowerAppsEnvironments"
+                },
+                "schedule": {
+                    "name": "Daily"
+                }
+            }
+        },
+        {
+            "type": "Microsoft.Automation/automationAccounts/credentials",
+            "apiVersion": "2019-06-01",
+            "name": "[concat(parameters('azureAutomationAccountName'), '/AppRegistration')]",
+            "dependsOn": [
+                "[resourceId('Microsoft.Automation/automationAccounts', parameters('azureAutomationAccountName'))]"
+            ],
+            "properties": {
+                "userName": "[parameters('appId')]",
+                "password": "[parameters('clientSecret')]"
+            }
+        },
+        {
+            "type": "Microsoft.Automation/automationAccounts/variables",
+            "apiVersion": "2019-06-01",
+            "name": "[concat(parameters('azureAutomationAccountName'), '/AzureAutomationAccountName')]",
+            "dependsOn": [
+                "[resourceId('Microsoft.Automation/automationAccounts', parameters('azureAutomationAccountName'))]"
+            ],
+            "properties": {
+                "isEncrypted": false,
+                "value": "[concat('\"', parameters('azureAutomationAccountName'), '\"')]"
+            }
+        },
+        {
+            "type": "Microsoft.Automation/automationAccounts/variables",
+            "apiVersion": "2019-06-01",
+            "name": "[concat(parameters('azureAutomationAccountName'), '/AzureResourceGroupName')]",
+            "dependsOn": [
+                "[resourceId('Microsoft.Automation/automationAccounts', parameters('azureAutomationAccountName'))]"
+            ],
+            "properties": {
+                "isEncrypted": false,
+                "value": "[concat('\"', parameters('azureResourceGroupName'), '\"')]"
+            }
+        },
+        {
+            "type": "Microsoft.Automation/automationAccounts/variables",
+            "apiVersion": "2019-06-01",
+            "name": "[concat(parameters('azureAutomationAccountName'), '/AzureSubscriptionId')]",
+            "dependsOn": [
+                "[resourceId('Microsoft.Automation/automationAccounts', parameters('azureAutomationAccountName'))]"
+            ],
+            "properties": {
+                "isEncrypted": false,
+                "value": "[concat('\"', parameters('azureSubscriptionId'), '\"')]"
+            }
+        },
+        {
+            "type": "Microsoft.Automation/automationAccounts/runbooks",
+            "apiVersion": "2019-06-01",
+            "name": "[concat(parameters('azureAutomationAccountName'), '/CheckForDeletedPowerAppsEnvironments')]",
+            "location": "[parameters('location')]",
+            "dependsOn": [
+                "[resourceId('Microsoft.Automation/automationAccounts', parameters('azureAutomationAccountName'))]"
+            ],
+            "properties": {
+                "runbookType": "PowerShell",
+                "logVerbose": false,
+                "logProgress": false,
+                "logActivityTrace": 0,
+                "publishContentLink": {
+                    "uri": "https://raw.githubusercontent.com/JakeGwynn/PowerPlatform-DeletedEnvironmentChecker/main/CheckForDeletedPowerAppsEnvironments.ps1",
+                    "version": "1.0.0.0"
+                }
+            }
+        },
+        {
+            "type": "Microsoft.Automation/automationAccounts/schedules",
+            "apiVersion": "2019-06-01",
+            "name": "[concat(parameters('azureAutomationAccountName'), '/Daily')]",
+            "dependsOn": [
+                "[resourceId('Microsoft.Automation/automationAccounts', parameters('azureAutomationAccountName'))]"
+            ],
+            "properties": {
+                "startTime": "[concat(variables('tomorrow'), 'T02:00:00-08:00')]",
+                "expiryTime": "9999-12-31T15:59:00-08:00",
+                "interval": 1,
+                "frequency": "Day",
+                "timeZone": "America/Los_Angeles"
+            }
+        },
+        {
+            "type": "Microsoft.Automation/automationAccounts/variables",
+            "apiVersion": "2019-06-01",
+            "name": "[concat(parameters('azureAutomationAccountName'), '/Location')]",
+            "dependsOn": [
+                "[resourceId('Microsoft.Automation/automationAccounts', parameters('azureAutomationAccountName'))]"
+            ],
+            "properties": {
+                "isEncrypted": false,
+                "value": "[concat('\"', parameters('location'), '\"')]"
+            }
+        },
+        {
+            "type": "Microsoft.Automation/automationAccounts/variables",
+            "apiVersion": "2019-06-01",
+            "name": "[concat(parameters('azureAutomationAccountName'), '/LogicAppWebhookUrl')]",
+            "dependsOn": [
+                "[resourceId('Microsoft.Automation/automationAccounts', parameters('azureAutomationAccountName'))]",
+            ],
+            "properties": {
+                "isEncrypted": true,
+                "value": "[concat('\"', parameters('logicAppWebhookUrl'), '\"')]"
+            }
+        },
+        {
+            "type": "Microsoft.Automation/automationAccounts/modules",
+            "apiVersion": "2019-06-01",
+            "name": "[concat(parameters('azureAutomationAccountName'), '/Microsoft.PowerApps.Administration.PowerShell')]",
+            "dependsOn": [
+                "[resourceId('Microsoft.Automation/automationAccounts', parameters('azureAutomationAccountName'))]"
+            ],
+            "properties": {
+                "contentLink": {
+                    "uri": "https://psg-prod-eastus.azureedge.net/packages/microsoft.powerapps.administration.powershell.2.0.154.nupkg",
+                    "version": "2.0.154"
+                }
+            }
+        },
+        {
+            "type": "Microsoft.Automation/automationAccounts/modules",
+            "apiVersion": "2019-06-01",
+            "name": "[concat(parameters('azureAutomationAccountName'), '/PnP.PowerShell')]",
+            "dependsOn": [
+                "[resourceId('Microsoft.Automation/automationAccounts', parameters('azureAutomationAccountName'))]"
+            ],
+            "properties": {
+                "contentLink": {
+                    "uri": "https://psg-prod-eastus.azureedge.net/packages/pnp.powershell.1.12.0.nupkg",
+                    "version": "1.12.0"
+                }
+            }
+        },
+        {
+            "type": "Microsoft.Automation/automationAccounts/runbooks",
+            "apiVersion": "2019-06-01",
+            "name": "[concat(parameters('azureAutomationAccountName'), '/RestoreDeletedPowerPlatEnv')]",
+            "location": "[parameters('location')]",
+            "dependsOn": [
+                "[resourceId('Microsoft.Automation/automationAccounts', parameters('azureAutomationAccountName'))]"
+            ],
+            "properties": {
+                "runbookType": "PowerShell",
+                "logVerbose": false,
+                "logProgress": false,
+                "logActivityTrace": 0,
+                "publishContentLink": {
+                    "uri": "https://raw.githubusercontent.com/JakeGwynn/PowerPlatform-DeletedEnvironmentChecker/main/RestoreDeletedPowerPlatEnv.ps1",
+                    "version": "1.0.0.0"
+                }
+            }
+        },
+        {
+            "type": "Microsoft.Automation/automationAccounts/variables",
+            "apiVersion": "2019-06-01",
+            "name": "[concat(parameters('azureAutomationAccountName'), '/SendNotificationsTo')]",
+            "dependsOn": [
+                "[resourceId('Microsoft.Automation/automationAccounts', parameters('azureAutomationAccountName'))]"
+            ],
+            "properties": {
+                "isEncrypted": false,
+                "value": "[concat('\"', parameters('sendNotificationsTo'), '\"')]"
+            }
+        },
+        {
+            "type": "Microsoft.Automation/automationAccounts/variables",
+            "apiVersion": "2019-06-01",
+            "name": "[concat(parameters('azureAutomationAccountName'), '/SendRepeatedNotifications')]",
+            "dependsOn": [
+                "[resourceId('Microsoft.Automation/automationAccounts', parameters('azureAutomationAccountName'))]"
+            ],
+            "properties": {
+                "isEncrypted": false,
+                "value": "[parameters('sendRepeatedNotifications')]"
+            }
+        },
+        {
+            "type": "Microsoft.Automation/automationAccounts/variables",
+            "apiVersion": "2019-06-01",
+            "name": "[concat(parameters('azureAutomationAccountName'), '/SpoListName')]",
+            "dependsOn": [
+                "[resourceId('Microsoft.Automation/automationAccounts', parameters('azureAutomationAccountName'))]"
+            ],
+            "properties": {
+                "isEncrypted": false,
+                "value": "[concat('\"', parameters('spoListName'), '\"')]"
+            }
+        },
+        {
+            "type": "Microsoft.Automation/automationAccounts/variables",
+            "apiVersion": "2019-06-01",
+            "name": "[concat(parameters('azureAutomationAccountName'), '/SpoSiteUrl')]",
+            "dependsOn": [
+                "[resourceId('Microsoft.Automation/automationAccounts', parameters('azureAutomationAccountName'))]"
+            ],
+            "properties": {
+                "isEncrypted": false,
+                "value": "[concat('\"', parameters('spoSiteUrl'), '\"')]"
+            }
+        },
+        {
+            "type": "Microsoft.Automation/automationAccounts/variables",
+            "apiVersion": "2019-06-01",
+            "name": "[concat(parameters('azureAutomationAccountName'), '/TenantId')]",
+            "dependsOn": [
+                "[resourceId('Microsoft.Automation/automationAccounts', parameters('azureAutomationAccountName'))]"
+            ],
+            "properties": {
+                "isEncrypted": false,
+                "value": "[concat('\"', parameters('tenantId'), '\"')]"
+            }
+        },
+        {
+            "type": "Microsoft.Authorization/roleAssignments",
+            "apiVersion": "2016-07-01",
+            "name": "[guid(parameters('appId'), variables('automationJobOperator'), resourceGroup().id)]",
+            "scope": "[resourceId('Microsoft.Automation/automationAccounts', parameters('azureAutomationAccountName'))]",
+            "dependsOn": [
+                "[resourceId('Microsoft.Automation/automationAccounts', parameters('azureAutomationAccountName'))]"
+            ],
+            "properties": {
+                "roleDefinitionId": "[concat('/subscriptions/', parameters('azureSubscriptionId'), '/providers/Microsoft.Authorization/roleDefinitions/4fe576fe-1146-4730-92eb-48519fa6bf9f')]",
+                "principalId": "[reference(variables('logicAppWebhook'), '2019-05-01', 'Full').identity.principalId]"
+            }
+        },
+        {
+            "type": "Microsoft.Authorization/roleAssignments",
+            "apiVersion": "2016-07-01",
+            "name": "[guid(parameters('appId'), variables('automationRunbookOperator'), resourceGroup().id)]",
+            "scope": "[resourceId('Microsoft.Automation/automationAccounts', parameters('azureAutomationAccountName'))]",
+            "dependsOn": [
+                "[resourceId('Microsoft.Automation/automationAccounts', parameters('azureAutomationAccountName'))]"
+            ],
+            "properties": {
+                "roleDefinitionId": "[concat('/subscriptions/', parameters('azureSubscriptionId'), '/providers/Microsoft.Authorization/roleDefinitions/5fb5aef8-1081-4b8e-bb16-9d5d0385bab5')]",
+                "principalId": "[reference(variables('logicAppWebhook'), '2019-05-01', 'Full').identity.principalId]"
+            }
+        }, 
+        {
+            "type": "Microsoft.Automation/automationAccounts",
+            "apiVersion": "2021-06-22",
+            "name": "[parameters('azureAutomationAccountName')]",
+            "location": "[parameters('location')]",
+            "identity": {
+                "type": "SystemAssigned"
+            },
+            "properties": {
+                "publicNetworkAccess": true,
+                "disableLocalAuth": false,
+                "sku": {
+                    "name": "Basic"
+                },
+                "encryption": {
+                    "keySource": "Microsoft.Automation",
+                    "identity": {}
+                }
+            }
+        }
+    ]
+}

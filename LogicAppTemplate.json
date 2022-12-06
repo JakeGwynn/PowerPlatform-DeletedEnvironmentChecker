@@ -1,0 +1,440 @@
+{
+    "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+    "contentVersion": "1.0.0.0",
+    "parameters": {
+        "logicAppName": {
+            "defaultValue": "SendDeletedPowerPlatEnvNotifications",
+            "type": "String"
+        },
+        "azureSubscriptionId": {
+            "type": "String"
+        },
+        "azureResourceGroupName": {
+            "type": "String"
+        },
+        "location": {
+            "type": "string"
+        }
+    },
+    "variables": {},
+    "resources": [
+        {
+            "type": "Microsoft.Logic/workflows",
+            "apiVersion": "2017-07-01",
+            "name": "[parameters('logicAppName')]",
+            "location": "[parameters('location')]",
+            "identity": {
+                "type": "SystemAssigned"
+             },
+            "properties": {
+                "state": "Enabled",
+                "definition": {
+                    "$schema": "https://schema.management.azure.com/providers/Microsoft.Logic/schemas/2016-06-01/workflowdefinition.json#",
+                    "contentVersion": "1.0.0.0",
+                    "parameters": {
+                        "$connections": {
+                            "defaultValue": {},
+                            "type": "Object"
+                        }
+                    },
+                    "triggers": {
+                        "manual": {
+                            "type": "Request",
+                            "kind": "Http",
+                            "inputs": {
+                                "schema": {
+                                    "properties": {
+                                        "AzureAutomationAccountName": {
+                                            "type": "string"
+                                        },
+                                        "AzureResourceGroupName": {
+                                            "type": "string"
+                                        },
+                                        "AzureSubscriptionId": {
+                                            "type": "string"
+                                        },
+                                        "EnvDisplayName": {
+                                            "type": "string"
+                                        },
+                                        "EnvLastModifiedTime": {
+                                            "type": "string"
+                                        },
+                                        "EnvName": {
+                                            "type": "string"
+                                        },
+                                        "ListItemID": {
+                                            "type": "integer"
+                                        },
+                                        "SendNotificationsTo": {
+                                            "type": "string"
+                                        },
+                                        "SendRepeatedNotifications": {
+                                            "type": "boolean"
+                                        },
+                                        "SpoListName": {
+                                            "type": "string"
+                                        },
+                                        "SpoSiteUrl": {
+                                            "type": "string"
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    },
+                    "actions": {
+                        "Condition": {
+                            "actions": {
+                                "Set_variable_2": {
+                                    "runAfter": {},
+                                    "type": "SetVariable",
+                                    "inputs": {
+                                        "name": "varEmailOptions",
+                                        "value": "Recover Environment, Stop Notifications"
+                                    }
+                                }
+                            },
+                            "runAfter": {
+                                "Initialize_variable": [
+                                    "Succeeded"
+                                ]
+                            },
+                            "else": {
+                                "actions": {
+                                    "Set_variable": {
+                                        "runAfter": {},
+                                        "type": "SetVariable",
+                                        "inputs": {
+                                            "name": "varEmailOptions",
+                                            "value": "Recover Environment"
+                                        }
+                                    }
+                                }
+                            },
+                            "expression": {
+                                "and": [
+                                    {
+                                        "equals": [
+                                            "@triggerBody()?['SendRepeatedNotifications']",
+                                            true
+                                        ]
+                                    }
+                                ]
+                            },
+                            "type": "If"
+                        },
+                        "Condition_2": {
+                            "actions": {
+                                "Condition_3": {
+                                    "actions": {
+                                        "Send_an_email_(V2)": {
+                                            "runAfter": {},
+                                            "type": "ApiConnection",
+                                            "inputs": {
+                                                "body": {
+                                                    "Body": "<p>Your attempt to restore the Power Platform Environment named \"@{body('Get_item')?['EnvDisplayName']}\" failed because it was already restored.</p>",
+                                                    "Importance": "Normal",
+                                                    "Subject": "Environment already restored",
+                                                    "To": "@triggerBody()?['SendNotificationsTo']"
+                                                },
+                                                "host": {
+                                                    "connection": {
+                                                        "name": "@parameters('$connections')['office365']['connectionId']"
+                                                    }
+                                                },
+                                                "method": "post",
+                                                "path": "/v2/Mail"
+                                            }
+                                        }
+                                    },
+                                    "runAfter": {},
+                                    "else": {
+                                        "actions": {
+                                            "Compose": {
+                                                "runAfter": {
+                                                    "Get_job_output": [
+                                                        "Succeeded"
+                                                    ]
+                                                },
+                                                "type": "Compose",
+                                                "inputs": "@body('Get_job_output')"
+                                            },
+                                            "Condition_4": {
+                                                "actions": {
+                                                    "Send_an_email_(V2)_2": {
+                                                        "runAfter": {},
+                                                        "type": "ApiConnection",
+                                                        "inputs": {
+                                                            "body": {
+                                                                "Body": "<p><span style=\"font-size: 18px\"><strong>Env Guid: </strong></span><span style=\"font-size: 18px\"></span><span style=\"font-size: 18px\">@{triggerBody()?['EnvName']}</span><span style=\"font-size: 18px\"><br>\n<br>\n</span><span style=\"font-size: 18px\"><strong>Env Display Name:</strong></span><span style=\"font-size: 18px\"> </span><span style=\"font-size: 18px\">@{triggerBody()?['EnvDisplayName']}</span><span style=\"font-size: 18px\"></span><br>\n<br>\n<span style=\"font-size: 16px\"><u>Output from Environment Recovery Script:</u></span><br>\n<br>\n@{outputs('Compose')}</p>",
+                                                                "Importance": "Normal",
+                                                                "Subject": "Environment Recovery Results: \"@{triggerBody()?['EnvDisplayName']}\" Recoverey Sucessful",
+                                                                "To": "@triggerBody()?['SendNotificationsTo']"
+                                                            },
+                                                            "host": {
+                                                                "connection": {
+                                                                    "name": "@parameters('$connections')['office365']['connectionId']"
+                                                                }
+                                                            },
+                                                            "method": "post",
+                                                            "path": "/v2/Mail"
+                                                        }
+                                                    }
+                                                },
+                                                "runAfter": {
+                                                    "Compose": [
+                                                        "Succeeded"
+                                                    ]
+                                                },
+                                                "else": {
+                                                    "actions": {
+                                                        "Send_an_email_(V2)_3": {
+                                                            "runAfter": {},
+                                                            "type": "ApiConnection",
+                                                            "inputs": {
+                                                                "body": {
+                                                                    "Body": "<p><span style=\"font-size: 18px\"><strong>Env Guid:</strong></span><span style=\"font-size: 18px\"> </span><span style=\"font-size: 18px\">@{triggerBody()?['EnvName']}</span><span style=\"font-size: 18px\"><br>\n<br>\n</span><span style=\"font-size: 18px\"><strong>Env Display Name: </strong></span><span style=\"font-size: 18px\"></span><span style=\"font-size: 18px\">@{triggerBody()?['EnvDisplayName']}</span><span style=\"font-size: 18px\"></span><br>\n<br>\n<span style=\"font-size: 16px\"><u>Output from Environment Recovery Script:</u></span><br>\n<br>\n@{outputs('Compose')}</p>",
+                                                                    "Importance": "Normal",
+                                                                    "Subject": "Environment Recovery Results: \"@{triggerBody()?['EnvDisplayName']}\" Recovery Failed",
+                                                                    "To": "@triggerBody()?['SendNotificationsTo']"
+                                                                },
+                                                                "host": {
+                                                                    "connection": {
+                                                                        "name": "@parameters('$connections')['office365']['connectionId']"
+                                                                    }
+                                                                },
+                                                                "method": "post",
+                                                                "path": "/v2/Mail"
+                                                            }
+                                                        }
+                                                    }
+                                                },
+                                                "expression": {
+                                                    "and": [
+                                                        {
+                                                            "contains": [
+                                                                "@outputs('Compose')",
+                                                                "Environment recovery successful"
+                                                            ]
+                                                        }
+                                                    ]
+                                                },
+                                                "type": "If"
+                                            },
+                                            "Create_job": {
+                                                "runAfter": {},
+                                                "type": "ApiConnection",
+                                                "inputs": {
+                                                    "body": {
+                                                        "properties": {
+                                                            "parameters": {
+                                                                "EnvironmentRestoredBy": "@variables('varEmailResponseUser')",
+                                                                "ListItemId": "@triggerBody()?['ListItemID']",
+                                                                "environmentName": "@triggerBody()?['EnvName']"
+                                                            }
+                                                        }
+                                                    },
+                                                    "host": {
+                                                        "connection": {
+                                                            "name": "@parameters('$connections')['azureautomation']['connectionId']"
+                                                        }
+                                                    },
+                                                    "method": "put",
+                                                    "path": "/subscriptions/@{encodeURIComponent(triggerBody()?['AzureSubscriptionId'])}/resourceGroups/@{encodeURIComponent(triggerBody()?['AzureResourceGroupName'])}/providers/Microsoft.Automation/automationAccounts/@{encodeURIComponent(triggerBody()?['AzureAutomationAccountName'])}/jobs",
+                                                    "queries": {
+                                                        "runbookName": "RestoreDeletedPowerPlatEnv",
+                                                        "wait": true,
+                                                        "x-ms-api-version": "2015-10-31"
+                                                    }
+                                                }
+                                            },
+                                            "Get_job_output": {
+                                                "runAfter": {
+                                                    "Create_job": [
+                                                        "Succeeded"
+                                                    ]
+                                                },
+                                                "type": "ApiConnection",
+                                                "inputs": {
+                                                    "host": {
+                                                        "connection": {
+                                                            "name": "@parameters('$connections')['azureautomation']['connectionId']"
+                                                        }
+                                                    },
+                                                    "method": "get",
+                                                    "path": "/subscriptions/@{encodeURIComponent(triggerBody()?['AzureSubscriptionId'])}/resourceGroups/@{encodeURIComponent(triggerBody()?['AzureResourceGroupName'])}/providers/Microsoft.Automation/automationAccounts/@{encodeURIComponent(triggerBody()?['AzureAutomationAccountName'])}/jobs/@{encodeURIComponent(body('Create_job')?['properties']?['jobId'])}/output",
+                                                    "queries": {
+                                                        "x-ms-api-version": "2015-10-31"
+                                                    }
+                                                }
+                                            }
+                                        }
+                                    },
+                                    "expression": {
+                                        "and": [
+                                            {
+                                                "equals": [
+                                                    "@body('Get_item')?['EnvRestored']",
+                                                    true
+                                                ]
+                                            }
+                                        ]
+                                    },
+                                    "type": "If"
+                                }
+                            },
+                            "runAfter": {
+                                "Get_item": [
+                                    "Succeeded"
+                                ]
+                            },
+                            "else": {
+                                "actions": {
+                                    "Update_item": {
+                                        "runAfter": {},
+                                        "type": "ApiConnection",
+                                        "inputs": {
+                                            "body": {
+                                                "RepeatNotificationsEnabled": false
+                                            },
+                                            "host": {
+                                                "connection": {
+                                                    "name": "@parameters('$connections')['sharepointonline']['connectionId']"
+                                                }
+                                            },
+                                            "method": "patch",
+                                            "path": "/datasets/@{encodeURIComponent(encodeURIComponent(triggerBody()?['SpoSiteUrl']))}/tables/@{encodeURIComponent(encodeURIComponent(triggerBody()?['SpoListName']))}/items/@{encodeURIComponent(triggerBody()?['ListItemID'])}"
+                                        }
+                                    }
+                                }
+                            },
+                            "expression": {
+                                "and": [
+                                    {
+                                        "equals": [
+                                            "@body('Send_email_with_options')?['SelectedOption']",
+                                            "Recover Environment"
+                                        ]
+                                    }
+                                ]
+                            },
+                            "type": "If"
+                        },
+                        "Get_item": {
+                            "runAfter": {
+                                "Initialize_variable_2": [
+                                    "Succeeded"
+                                ]
+                            },
+                            "type": "ApiConnection",
+                            "inputs": {
+                                "host": {
+                                    "connection": {
+                                        "name": "@parameters('$connections')['sharepointonline']['connectionId']"
+                                    }
+                                },
+                                "method": "get",
+                                "path": "/datasets/@{encodeURIComponent(encodeURIComponent(triggerBody()?['SpoSiteUrl']))}/tables/@{encodeURIComponent(encodeURIComponent(triggerBody()?['SpoListName']))}/items/@{encodeURIComponent(triggerBody()?['ListItemID'])}"
+                            }
+                        },
+                        "Initialize_variable": {
+                            "runAfter": {},
+                            "type": "InitializeVariable",
+                            "inputs": {
+                                "variables": [
+                                    {
+                                        "name": "varEmailOptions",
+                                        "type": "string"
+                                    }
+                                ]
+                            }
+                        },
+                        "Initialize_variable_2": {
+                            "runAfter": {
+                                "Send_email_with_options": [
+                                    "Succeeded"
+                                ]
+                            },
+                            "type": "InitializeVariable",
+                            "inputs": {
+                                "variables": [
+                                    {
+                                        "name": "varEmailResponseUser",
+                                        "type": "string",
+                                        "value": "@body('Send_email_with_options')?['UserEmailAddress']"
+                                    }
+                                ]
+                            }
+                        },
+                        "Send_email_with_options": {
+                            "runAfter": {
+                                "Condition": [
+                                    "Succeeded"
+                                ]
+                            },
+                            "limit": {
+                                "timeout": "P7D"
+                            },
+                            "type": "ApiConnectionWebhook",
+                            "inputs": {
+                                "body": {
+                                    "Message": {
+                                        "Body": "Env Guid: @{triggerBody()?['EnvName']}\n<br>\n<br>\nEnv Display Name: @{triggerBody()?['EnvDisplayName']}\n<br>\n<br>\nEnv Last Modified Date: @{triggerBody()?['EnvLastModifiedTime']}",
+                                        "HideHTMLMessage": false,
+                                        "Importance": "Normal",
+                                        "Options": "@variables('varEmailOptions')",
+                                        "ShowHTMLConfirmationDialog": true,
+                                        "Subject": "PowerApps Environment Deleted",
+                                        "To": "@triggerBody()?['SendNotificationsTo']",
+                                        "UseOnlyHTMLMessage": true
+                                    },
+                                    "NotificationUrl": "@{listCallbackUrl()}"
+                                },
+                                "host": {
+                                    "connection": {
+                                        "name": "@parameters('$connections')['office365']['connectionId']"
+                                    }
+                                },
+                                "path": "/mailwithoptions/$subscriptions"
+                            }
+                        }
+                    },
+                    "outputs": {}
+                },
+                "parameters": {
+                    "$connections": {
+                        "value": {
+                            "azureautomation": {
+                                "connectionId": "[concat('/subscriptions/', parameters('azureSubscriptionId'), '/resourceGroups/', parameters('azureResourceGroupName'), '/providers/Microsoft.Web/connections/checkdeletedenv-automationconnection')]",
+                                "connectionName": "checkdeletedenv-automationconnection",
+                                "connectionProperties": {
+                                    "authentication": {
+                                        "type": "ManagedServiceIdentity"
+                                    }
+                                },
+                                "id": "[concat('/subscriptions/', parameters('azureSubscriptionId'), '/providers/Microsoft.Web/locations/', parameters('location'), '/managedApis/azureautomation')]"
+                            },
+                            "office365": {
+                                "connectionId": "[concat('/subscriptions/', parameters('azureSubscriptionId'), '/resourceGroups/', parameters('azureResourceGroupName'), '/providers/Microsoft.Web/connections/checkdeletedenv-o365outlook')]",
+                                "connectionName": "checkdeletedenv-o365outlook",
+                                "id": "[concat('/subscriptions/', parameters('azureSubscriptionId'), '/providers/Microsoft.Web/locations/', parameters('location'), '/managedApis/office365')]"
+                            },
+                            "sharepointonline": {
+                                "connectionId": "[concat('/subscriptions/', parameters('azureSubscriptionId'), '/resourceGroups/', parameters('azureResourceGroupName'), '/providers/Microsoft.Web/connections/checkdeletedenv-spo')]",
+                                "connectionName": "checkdeletedenv-spo",
+                                "id": "[concat('/subscriptions/', parameters('azureSubscriptionId'), '/providers/Microsoft.Web/locations/', parameters('location'), '/managedApis/sharepointonline')]"
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    ],
+    "outputs": {
+        "logicAppUrl": {
+           "type": "string",
+           "value": "[listCallbackURL(concat(resourceId('Microsoft.Logic/workflows/', parameters('logicAppName')), '/triggers/manual'), '2016-06-01').value]"
+        }
+    }
+}
