@@ -7,7 +7,7 @@ This solution is comprised of two Azure Runbooks and a Logic App. One Azure Runb
 This solution can be deployed using the "Deploy.ps1" script in this repository. Download that script and run it on your local machine. 
 
 .\Deploy.ps1 -TenantID "04b9e073-1111-2222-3333-e6d55d5a3797" -AzureSubscriptionId "57db489f-1111-2222-3333-a0fda50af9e8" `
--Location "westus" -SpoSiteUrl "https://contoso.sharepoint.com/sites/PP-DeletedEnvironments" -SendNotificationsTo "admin1@contoso.com"
+-Location "westus" -SpoSiteUrl "https://contoso.sharepoint.com/sites/PP-DeletedEnvironments" -SendNotificationsTo "admin1@contoso.com;admin2@contoso.com"
 
 ## License
 Copyright 2022 Jake Gwynn
