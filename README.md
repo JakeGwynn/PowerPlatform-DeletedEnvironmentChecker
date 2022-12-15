@@ -11,7 +11,7 @@ This solution uses and/or deploys the following resources:
   a. Creates and links a schedule to the Runbook that checks for deleted Power Platform Environments
 4. Deploys an Azure LogicApp 
   a. Creates and authorizes connections to Outlook, SharePoint, and Azure Automation
-5. Creates an App Registration if it doesn't already exist.
+5. Creates an App Registration if it doesn't already exist. 
   a. If the App Registration already exists, the Deploy.ps1 script will prompt for the client secret
   b. If the App Registration doesn't already exist, the Deploy.ps1 script will create an App Registration, an associated Service Principal, and a Client Secret. 
     1. The Deploy.ps1 script will also grant Admin Consent to the required API Permissions
