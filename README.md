@@ -23,6 +23,7 @@ This solution can be deployed using the "Deploy.ps1" script in this repository. 
 1. Create a SharePoint Online site and note the URL. The site will host a SharePoint List that will be used to store details about recently deleted PowerApps environments.
 
 2. Download and run the Deploy.ps1 PowerShell script locally on a Windows computer. 
+
 .\Deploy.ps1 -TenantID "04b9e073-1111-2222-3333-e6d55d5a3797" -AzureSubscriptionId "57db489f-1111-2222-3333-a0fda50af9e8" `
 -Location "westus" -SpoSiteUrl "https://contoso.sharepoint.com/sites/PP-DeletedEnvironments" -SendNotificationsTo "admin1@contoso.com;admin2@contoso.com"
 
