@@ -8,10 +8,13 @@ This solution uses and/or deploys the following resources:
 1. A SharePoint Online site to host a SharePoint List.
 2. Creates a resource group in Azure if it doesn't already exist
 3. Deploys an Azure Automation Account with two PowerShell 5.1 Runbooks 
+
   a. Creates and links a schedule to the Runbook that checks for deleted Power Platform Environments
 4. Deploys an Azure LogicApp 
+
   a. Creates and authorizes connections to Outlook, SharePoint, and Azure Automation
 5. Creates an App Registration if it doesn't already exist. 
+
   a. If the App Registration already exists, the Deploy.ps1 script will prompt for the client secret
   b. If the App Registration doesn't already exist, the Deploy.ps1 script will create an App Registration, an associated Service Principal, and a Client Secret. 
     1. The Deploy.ps1 script will also grant Admin Consent to the required API Permissions
