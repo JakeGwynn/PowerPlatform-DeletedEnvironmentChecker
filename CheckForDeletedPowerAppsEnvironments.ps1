@@ -24,7 +24,7 @@ foreach ($Env in $PowerAppsDeletedEnvironments) {
 
 	[array]$MatchedListItems = $SpoDeletedEnvironments.Where({($_.EnvName -eq $Env.EnvironmentName) -and (-not $_.EnvRestored)})
 	$ListItem = $MatchedListItems.Where({$_.RepeatNotificationsEnabled})
-    if ((-not $MatchedListItems) -or ($ListItem -and ($SendRepeatedNotifications))) {
+    	if ((-not $MatchedListItems) -or ($ListItem -and $SendRepeatedNotifications)) {
         $SpoValues = @{
             "EnvName" = $Env.EnvironmentName
             "EnvDisplayName" = $Env.DisplayName
