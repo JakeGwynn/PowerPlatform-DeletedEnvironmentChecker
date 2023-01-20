@@ -210,7 +210,7 @@ foreach ($module in $preReqModules) {
 Write-Host "Installed modules" -ForegroundColor Green
 
 Write-Host "Connecting to Azure PowerShell"
-Connect-AzAccount
+Connect-AzAccount -SubscriptionId $AzureSubscriptionId
 Write-Host "Connecting to Azure AD PowerShell"
 Connect-AzureAD
 Write-Host "Connecting to PnP.PowerShell"
